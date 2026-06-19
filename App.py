@@ -17,32 +17,22 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">📊 YouTube Trend & Revenue Finder</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">GitHub와 Streamlit을 활용한 데이터 필터링 및 1일/3일/1주일/1달 랭킹 대시보드 시스템</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">각 채널별 최신 영상 썸네일 멀티 그리드 및 수익 연산 대시보드</div>', unsafe_allow_html=True)
 
-# 2. [백엔드 시뮬레이션] 대량의 가상 채널 데이터셋 생성 엔진 (썸네일 주소 추가)
+# 2. [백엔드 시뮬레이션] 채널당 4개의 가상 최신 썸네일 리스트를 생성하는 엔진
 @st.cache_data
 def load_initial_youtube_data():
     np.random.seed(42)
-    # 가상 채널 정보, 핸들명, 그리고 테스트용 썸네일 이미지 키워드 매핑
     channel_templates = [
-        ("김프로 KIMPRO", "Shorts", "@kimpro", "entertainment"), 
-        ("구래 CuRe", "Shorts", "@cure", "comedy"), 
-        ("승비니 seungbini", "Shorts", "@seungbini", "dance"),
-        ("급상승 예능쇼", "Shorts", "@trending_show", "show"), 
-        ("숏폼 마스터", "Shorts", "@short_master", "clip"), 
-        ("이슈 디렉터", "Shorts", "@issue_director", "news"),
-        ("IT 테크 지니어스", "Long-form", "@tech_genius", "tech"), 
-        ("슈카월드 스타일", "Long-form", "@syuka_style", "finance"),
-        ("경제 읽어주는 남자", "Long-form", "@economy_man", "business"), 
-        ("지식 보관소", "Long-form", "@knowledge_archive", "book"), 
-        ("브이로그 다이어리", "Long-form", "@vlog_diary", "travel"),
-        ("영화 비하인드 큐브", "Long-form", "@movie_cube", "movie"), 
-        ("쿠킹 클래스 스튜디오", "Long-form", "@cooking_studio", "food"), 
-        ("게임 하이라이트", "Long-form", "@game_highlight", "gaming")
+        ("김프로 KIMPRO", "Shorts", "@kimpro"), ("구래 CuRe", "Shorts", "@cure"), ("승비니 seungbini", "Shorts", "@seungbini"),
+        ("급상승 예능쇼", "Shorts", "@trending_show"), ("숏폼 마스터", "Shorts", "@short_master"), ("이슈 디렉터", "Shorts", "@issue_director"),
+        ("IT 테크 지니어스", "Long-form", "@tech_genius"), ("슈카월드 스타일", "Long-form", "@syuka_style"),
+        ("경제 읽어주는 남자", "Long-form", "@economy_man"), ("지식 보관소", "Long-form", "@knowledge_archive"), 
+        ("브이로그 다이어리", "Long-form", "@vlog_diary"), ("영화 비하인드 큐브", "Long-form", "@movie_cube")
     ]
     
     data = []
-    for i, (name, media_type, handle, category) in enumerate(channel_templates * 3):
+    for i, (name, media_type, handle) in enumerate(channel_templates * 3):
         base_views = np.random.randint(1000000, 15000000) if media_type == "Shorts" else np.random.randint(80000, 1500000)
         
         views_1d = base_views
@@ -54,13 +44,18 @@ def load_initial_youtube_data():
         unique_name = f"{name} #{np.random.randint(10,99)}"
         youtube_url = f"https://www.youtube.com/{handle}"
         
-        # 실제 서비스 시 유튜브 API가 제공하는 각 영상/채널의 썸네일 이미지 URL이 들어가는 자리입니다.
-        # 여기서는 Unsplash의 카테고리별 데이터 시각화용 가상 썸네일 주소를 매핑합니다.
-        thumbnail_url = f"https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=120&h=90&q=80&sig={i}"
+        # ⭐ 핵심 변형: 채널당 최신 영상 4개의 썸네일 URL을 리스트(배열) 구조로 백엔드 데이터에 주입
+        # 실제 API 환경에서는 각 채널의 최근 업로드 비디오 목록에서 4개의 'thumbnail.url'을 추출해 리스트로 채우게 됩니다.
+        thumbnails_list = [
+            f"https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=100&h=75&q=80&sig={i}1",
+            f"https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?auto=format&fit=crop&w=100&h=75&q=80&sig={i}2",
+            f"https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=100&h=75&q=80&sig={i}3",
+            f"https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=100&h=75&q=80&sig={i}4"
+        ]
         
         data.append({
             "채널 ID": f"CH_{i+1:03d}",
-            "썸네일": thumbnail_url,
+            "최신 썸네일 목록": thumbnails_list,
             "채널명": unique_name,
             "채널 링크": youtube_url,
             "콘텐츠 분류": media_type,
@@ -74,7 +69,7 @@ def load_initial_youtube_data():
 
 df_raw = load_initial_youtube_data()
 
-# 3. [프론트엔드 - 대시보드 제어부] 사이드바 컴포넌트 배치
+# 3. [프론트엔드 - 제어부] 사이드바 컴포넌트
 st.sidebar.header("🔍 고급 검색 필터 시스템")
 
 media_filter = st.sidebar.radio(
@@ -94,7 +89,7 @@ sort_target = st.sidebar.radio(
 
 search_button = st.sidebar.button("🔍 검색시작", type="primary", use_container_width=True)
 
-# 4. 버튼 제어 흐름 처리
+# 4. 버튼 제어 흐름
 if search_button:
     if media_filter == "롱폼 (Long-form)":
         df_filtered = df_raw[df_raw["콘텐츠 분류"] == "Long-form"].copy()
@@ -122,4 +117,53 @@ if search_button:
     else:
         df_sorted = df_filtered.sort_values(by="예상 최대수익(원)", ascending=False)
 
-    # 1~20위
+    # 1~20위 슬라이싱
+    df_top20 = df_sorted.head(20).reset_index(drop=True)
+    df_top20.index = df_top20.index + 1
+
+    # 5. [프론트엔드 - 결과 출력]
+    st.subheader(f"🏆 {media_filter} - {period_filter} 기준 트렌드 순위 (Top 20)")
+
+    # 데이터프레임 구조 구성
+    display_df = pd.DataFrame({
+        "최신 영상 썸네일 (4개)": df_top20["최신 썸네일 목록"], # 리스트 데이터 통째로 맵핑
+        "채널명(이동)": df_top20["채널 링크"],
+        "표시이름": df_top20["채널명"],
+        "미디어 타입": df_top20["콘텐츠 분류"],
+        f"선택 기간 조회수 ({period_filter})": df_top20["기준 조회수"].map('{:,}'.format),
+        "예상 최소 수익": df_top20["예상 최소수익(원)"].map('₩{:,}'.format),
+        "예상 최대 수익": df_top20["예상 최대수익(원)"].map('₩{:,}'.format)
+    })
+
+    # ⭐ 정밀 매핑 셋업: ListColumn 안에 ImageColumn 속성을 내포시켜 리스트 내 이미지들이 가로로 정렬 출력되도록 조율합니다.
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        height=820,
+        column_config={
+            "최신 영상 썸네일 (4개)": st.column_config.ListColumn(
+                label="최근 업로드 영상 썸네일 (최신순)",
+                help="해당 크리에이터가 채널에 가장 최근에 업로드한 영상 4개의 표지 이미지 배열입니다."
+            ),
+            "채널명(이동)": st.column_config.LinkColumn(
+                label="채널명 (클릭 시 이동)",
+                display_text=r"^https://www.youtube.com/(.*)$"
+            ),
+            "표시이름": None
+        }
+    )
+
+    # 요약 지표 카드
+    st.markdown("---")
+    st.markdown("### 📈 현재 화면 요약 통계 지표")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric(label=f"20위 내 최고 조회수 ({period_filter})", value=f"{df_top20['기준 조회수'].max():,} 회")
+    with col2:
+        st.metric(label="최고 예상 일일 수익 채널", value=f"₩{df_top20['예상 최대수익(원)'].max():,}")
+    with col3:
+        st.metric(label="분석된 활성 채널 풀 개수", value=f"{len(df_filtered)}개 채널")
+
+else:
+    st.info("💡 왼쪽 사이드바에서 원하는 검색 조건을 설정한 후 **[🔍 검색시작]** 버튼을 누르면 실시간 분석 랭킹 데이터가 출력됩니다.")
+    st.image("https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80", caption="원하는 필터를 선택하고 검색을 시작해 보세요.", use_container_width=True)
