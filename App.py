@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# 1. 페이지 기본 설정 및 스타일 정의
+# 1. 페이지 기본 설정
 st.set_page_config(
     page_title="유튜브 트렌드 분석 및 예상수익 대시보드",
     page_icon="📊",
@@ -17,9 +17,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">📊 YouTube Trend & Revenue Finder</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">각 채널별 최신 영상 썸네일 멀티 그리드 및 수익 연산 대시보드</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">GitHub와 Streamlit을 활용한 데이터 필터링 및 랭킹 대시보드 시스템</div>', unsafe_allow_html=True)
 
-# 2. [백엔드 시뮬레이션] 채널당 4개의 가상 최신 썸네일 리스트를 생성하는 엔진
+# 2. [백엔드 데이터] 안전하고 확실한 다이렉트 이미지 URL 매핑
 @st.cache_data
 def load_initial_youtube_data():
     np.random.seed(42)
@@ -39,23 +39,26 @@ def load_initial_youtube_data():
         views_3d = int(base_views * np.random.uniform(2.5, 3.2))
         views_7d = int(base_views * np.random.uniform(5.5, 7.2))
         views_30d = int(base_views * np.random.uniform(22.0, 29.0))
-        
         rpm = np.random.randint(40, 85) if media_type == "Shorts" else np.random.randint(3500, 7500)
+        
         unique_name = f"{name} #{np.random.randint(10,99)}"
         youtube_url = f"https://www.youtube.com/{handle}"
         
-        # ⭐ 핵심 변형: 채널당 최신 영상 4개의 썸네일 URL을 리스트(배열) 구조로 백엔드 데이터에 주입
-        # 실제 API 환경에서는 각 채널의 최근 업로드 비디오 목록에서 4개의 'thumbnail.url'을 추출해 리스트로 채우게 됩니다.
-        thumbnails_list = [
-            f"https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=100&h=75&q=80&sig={i}1",
-            f"https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?auto=format&fit=crop&w=100&h=75&q=80&sig={i}2",
-            f"https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=100&h=75&q=80&sig={i}3",
-            f"https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=100&h=75&q=80&sig={i}4"
+        # 100% 렌더링이 보장되는 고정 규격 단독 이미지 URL (표 내부용 1개)
+        main_thumb = f"https://picsum.photos/id/{i+10}/120/90.jpg"
+        
+        # 아래 피드 영역에 뿌려줄 최신 영상 4개의 단독 이미지 배열
+        sub_thumbs = [
+            f"https://picsum.photos/id/{i+11}/300/200.jpg",
+            f"https://picsum.photos/id/{i+12}/300/200.jpg",
+            f"https://picsum.photos/id/{i+13}/300/200.jpg",
+            f"https://picsum.photos/id/{i+14}/300/200.jpg"
         ]
         
         data.append({
-            "채널 ID": f"CH_{i+1:03d}",
-            "최신 썸네일 목록": thumbnails_list,
+            "순위": 0,
+            "대표 썸네일": main_thumb,
+            "최신 썸네일 리스트": sub_thumbs,
             "채널명": unique_name,
             "채널 링크": youtube_url,
             "콘텐츠 분류": media_type,
@@ -69,27 +72,14 @@ def load_initial_youtube_data():
 
 df_raw = load_initial_youtube_data()
 
-# 3. [프론트엔드 - 제어부] 사이드바 컴포넌트
+# 3. 사이드바 제어부
 st.sidebar.header("🔍 고급 검색 필터 시스템")
-
-media_filter = st.sidebar.radio(
-    "미디어 포맷 선택",
-    ["전체 보기", "롱폼 (Long-form)", "숏폼 (Shorts)"]
-)
-
-period_filter = st.sidebar.selectbox(
-    "조회수 및 수익 기준 기간",
-    ["1일", "3일", "1주일", "1달"]
-)
-
-sort_target = st.sidebar.radio(
-    "정렬 기준 선택",
-    ["조회수 순", "예상 수익 순"]
-)
+media_filter = st.sidebar.radio("미디어 포맷 선택", ["전체 보기", "롱폼 (Long-form)", "숏폼 (Shorts)"])
+period_filter = st.sidebar.selectbox("조회수 및 수익 기준 기간", ["1일", "3일", "1주일", "1달"])
+sort_target = st.sidebar.radio("정렬 기준 선택", ["조회수 순", "예상 수익 순"])
 
 search_button = st.sidebar.button("🔍 검색시작", type="primary", use_container_width=True)
 
-# 4. 버튼 제어 흐름
 if search_button:
     if media_filter == "롱폼 (Long-form)":
         df_filtered = df_raw[df_raw["콘텐츠 분류"] == "Long-form"].copy()
@@ -98,71 +88,64 @@ if search_button:
     else:
         df_filtered = df_raw.copy()
 
-    period_column_map = {
-        "1일": "1일 조회수",
-        "3일": "3일 조회수",
-        "1주일": "1주일 조회수",
-        "1달": "1달 조회수"
-    }
+    period_column_map = {"1일": "1일 조회수", "3일": "3일 조회수", "1주일": "1주일 조회수", "1달": "1달 조회수"}
     selected_views_col = period_column_map[period_filter]
 
-    # 수익 연산
     df_filtered["기준 조회수"] = df_filtered[selected_views_col]
     df_filtered["예상 최소수익(원)"] = ((df_filtered["기준 조회수"] / 1000) * df_filtered["적용 RPM(원)"] * 0.85).astype(int)
     df_filtered["예상 최대수익(원)"] = ((df_filtered["기준 조회수"] / 1000) * df_filtered["적용 RPM(원)"] * 1.15).astype(int)
 
-    # 정렬 처리
     if sort_target == "조회수 순":
         df_sorted = df_filtered.sort_values(by="기준 조회수", ascending=False)
     else:
         df_sorted = df_filtered.sort_values(by="예상 최대수익(원)", ascending=False)
 
-    # 1~20위 슬라이싱
     df_top20 = df_sorted.head(20).reset_index(drop=True)
-    df_top20.index = df_top20.index + 1
+    df_top20["순위"] = df_top20.index + 1
 
-    # 5. [프론트엔드 - 결과 출력]
-    st.subheader(f"🏆 {media_filter} - {period_filter} 기준 트렌드 순위 (Top 20)")
+    # 4. [출력부] 상단 메인 표 레이아웃 (대표 썸네일 1개 지정)
+    st.subheader(f"🏆 {media_filter} - {period_filter} 기준 분석 결과 (Top 20)")
 
-    # 데이터프레임 구조 구성
     display_df = pd.DataFrame({
-        "최신 영상 썸네일 (4개)": df_top20["최신 썸네일 목록"], # 리스트 데이터 통째로 맵핑
+        "순위": df_top20["순위"],
+        "썸네일": df_top20["대표 썸네일"],
         "채널명(이동)": df_top20["채널 링크"],
         "표시이름": df_top20["채널명"],
         "미디어 타입": df_top20["콘텐츠 분류"],
-        f"선택 기간 조회수 ({period_filter})": df_top20["기준 조회수"].map('{:,}'.format),
+        f"조회수 ({period_filter})": df_top20["기준 조회수"].map('{:,}'.format),
         "예상 최소 수익": df_top20["예상 최소수익(원)"].map('₩{:,}'.format),
         "예상 최대 수익": df_top20["예상 최대수익(원)"].map('₩{:,}'.format)
     })
 
-    # ⭐ 정밀 매핑 셋업: ListColumn 안에 ImageColumn 속성을 내포시켜 리스트 내 이미지들이 가로로 정렬 출력되도록 조율합니다.
+    # 정밀한 ImageColumn 설정을 통해 1번 컬럼의 대표 이미지를 확실하게 그립니다.
     st.dataframe(
         display_df,
         use_container_width=True,
-        height=820,
+        height=550,
         column_config={
-            "최신 영상 썸네일 (4개)": st.column_config.ListColumn(
-                label="최근 업로드 영상 썸네일 (최신순)",
-                help="해당 크리에이터가 채널에 가장 최근에 업로드한 영상 4개의 표지 이미지 배열입니다."
-            ),
-            "채널명(이동)": st.column_config.LinkColumn(
-                label="채널명 (클릭 시 이동)",
-                display_text=r"^https://www.youtube.com/(.*)$"
-            ),
+            "순위": st.column_config.NumberColumn(width="small"),
+            "썸네일": st.column_config.ImageColumn(label="채널 썸네일"),
+            "채널명(이동)": st.column_config.LinkColumn(label="채널명 (클릭 이동)", display_text=r"^https://www.youtube.com/(.*)$"),
             "표시이름": None
-        }
+        },
+        hide_index=True
     )
 
-    # 요약 지표 카드
+    # ⭐ 5. [핵심 업그레이드] 표 하단에 최신 영상 4개 썸네일 피드 그리드 전개
     st.markdown("---")
-    st.markdown("### 📈 현재 화면 요약 통계 지표")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric(label=f"20위 내 최고 조회수 ({period_filter})", value=f"{df_top20['기준 조회수'].max():,} 회")
-    with col2:
-        st.metric(label="최고 예상 일일 수익 채널", value=f"₩{df_top20['예상 최대수익(원)'].max():,}")
-    with col3:
-        st.metric(label="분석된 활성 채널 풀 개수", value=f"{len(df_filtered)}개 채널")
+    st.subheader("📸 상위 랭킹 채널별 최근 업로드 영상 피드 (최신순 4개)")
+    
+    # 1위부터 3위까지 주요 채널의 최신 영상 4개를 시각적으로 크게 나열
+    for idx in range(min(3, len(df_top20))):
+        channel_info = df_top20.iloc[idx]
+        st.markdown(f"#### **Top {idx+1}. {channel_info['채널명']} 채널의 최신 피드**")
+        
+        # 4개의 컬럼을 가로로 쪼개어 큰 이미지 배치
+        img_cols = st.columns(4)
+        for img_idx, sub_thumb_url in enumerate(channel_info["최신 썸네일 리스트"]):
+            with img_cols[img_idx]:
+                st.image(sub_thumb_url, caption=f"최신 영상 {img_idx+1}", use_container_width=True)
+        st.markdown("<br>", unsafe_allow_html=True)
 
 else:
     st.info("💡 왼쪽 사이드바에서 원하는 검색 조건을 설정한 후 **[🔍 검색시작]** 버튼을 누르면 실시간 분석 랭킹 데이터가 출력됩니다.")
