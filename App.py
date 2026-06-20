@@ -3,157 +3,172 @@ import pandas as pd
 import numpy as np
 import datetime
 
-# 1. 페이지 기본 설정
+# 1. 페이지 기본 설정 (픽셀링 고유의 다크/화이트 혼합 모던 룩 지향)
 st.set_page_config(
-    page_title="유튜브 실시간 트렌드 디스커버리 대시보드",
-    page_icon="🔥",
+    page_title="Pixeling Style - YouTube Discovery",
+    page_icon="🚀",
     layout="wide"
 )
 
+# 픽셀링 특유의 깔끔하고 고급스러운 UI 스타일 시트 (CSS) 적용
 st.markdown("""
     <style>
-    .main-title { font-size: 26pt; font-weight: bold; color: #C00000; margin-bottom: 5px; }
-    .sub-title { font-size: 11pt; color: #5A5A5A; margin-bottom: 25px; }
+    .discovery-header { font-size: 24pt; font-weight: 800; color: #111111; margin-bottom: 2px; }
+    .discovery-subheader { font-size: 10.5pt; color: #666666; margin-bottom: 30px; }
+    .channel-card {
+        background-color: #ffffff;
+        border: 1px solid #eef0f4;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .channel-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+        border-color: #d1d5db;
+    }
+    .rank-badge {
+        background-color: #ff4b4b;
+        color: white;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-weight: bold;
+        font-size: 9pt;
+    }
+    .metric-label { font-size: 9pt; color: #888888; margin-bottom: 2px; }
+    .metric-value { font-size: 12pt; font-weight: 700; color: #222222; }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-title">🔥 YouTube Trend Discovery Dashboard</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">시계열 데이터 스냅샷 엔진 기반 일자별/기간별 조회수 트렌드 분석 시스템</div>', unsafe_allow_html=True)
+st.markdown('<div class="discovery-header">🚀 채널 디스커버리 (Discovery)</div>', unsafe_allow_html=True)
+st.markdown('<div class="discovery-subheader">조회수, 구독자 성장률, 추정 수익 리포트를 기반으로 필터링된 실시간 대한민국 트렌드 네트워크</div>', unsafe_allow_html=True)
 
-# 2. [시계열 백엔드 엔진] 사용자가 선택한 날짜에 맞춰 과거 스냅샷 데이터를 시뮬레이션 생성
+# 2. [가상 디스커버리 엔진] 주소창 파라미터 구조와 일치하는 정밀 시뮬레이터
 @st.cache_data
-def load_snapshot_data_by_date(selected_date):
-    """
-    선택한 날짜(seed 역할)에 따라 조회수와 랭킹이 완전히 다르게 변하는 
-    시계열 데이터베이스 가상 시뮬레이터입니다.
-    """
-    # 날짜를 숫자로 변환하여 랜덤 시드로 활용 (날짜가 바뀌면 순위와 데이터가 완전히 바뀜)
-    date_seed = int(selected_date.strftime("%Y%m%d"))
-    np.random.seed(date_seed)
+def fetch_discovery_data(sort, order, days, country):
+    """픽셀링 API 명세와 연동되는 가상 백엔드 파이프라인"""
+    np.random.seed(days + len(sort)) # 파라미터 변화에 따라 데이터 셋 셔플
     
-    channel_templates = [
-        ("김프로 KIMPRO", "Shorts"), ("구래 CuRe", "Shorts"), ("승비니 seungbini", "Shorts"),
-        ("급상승 예능쇼", "Shorts"), ("숏폼 마스터", "Shorts"), ("이슈 디렉터", "Shorts"),
-        ("IT 테크 지니어스", "Long-form"), ("슈카월드 스타일", "Long-form"),
-        ("경제 읽어주는 남자", "Long-form"), ("지식 보관소", "Long-form"), 
-        ("브이로그 다이어리", "Long-form"), ("영화 비하인드 큐브", "Long-form"),
-        ("요리 연구소", "Long-form"), ("게임 하이라이트", "Long-form"), ("뷰티 가이드", "Shorts")
+    channels = [
+        ("김프로 KIMPRO", "Shorts", "@kimpro"), ("구래 CuRe", "Shorts", "@cure"), 
+        ("승비니 seungbini", "Shorts", "@seungbini"), ("슈카월드 스타일", "Long-form", "@syuka"),
+        ("IT섭 ITSUB", "Long-form", "@itsub"), ("경제 읽어주는 남자", "Long-form", "@economy"),
+        ("급상승 예능 숏", "Shorts", "@trending_short"), ("지식 보관소", "Long-form", "@knowledge"),
+        ("먹방 마스터", "Shorts", "@mukbang"), ("무비 큐브", "Long-form", "@movie_cube")
     ]
     
     data = []
-    for i, (name, media_type) in enumerate(channel_templates * 3):
-        # 날짜별로 조회수가 다이나믹하게 변동하도록 설정
-        base_views = np.random.randint(500000, 20000000) if media_type == "Shorts" else np.random.randint(50000, 3000000)
-        likes = int(base_views * np.random.uniform(0.02, 0.07))
+    for i, (name, m_type, handle) in enumerate(channels * 3):
+        # 파라미터 수치(days)에 상응하는 가중치 조회수 연산 적용
+        base_views = np.random.randint(1000000, 10000000) if m_type == "Shorts" else np.random.randint(100000, 2000000)
+        daily_view = int(base_views * days * np.random.uniform(0.8, 1.2))
+        subscribers = np.random.randint(500000, 15000000) if m_type == "Shorts" else np.random.randint(200000, 5000000)
         
-        # 실제 서비스 시 대입될 유튜브 고유 비디오 ID 및 썸네일 가상 매핑
-        video_id = f"vid_{date_seed}_{i}"
-        thumbnail_url = f"https://picsum.photos/id/{(i+date_seed)%100}/120/90.jpg"
+        # RPM 단가 연산
+        rpm = 55 if m_type == "Shorts" else 4500
+        revenue = int((daily_view / 1000) * rpm)
+        
+        # 프로필 이미지 및 대표 영상 링크 더미 생성
+        profile_img = f"https://picsum.photos/id/{(i+15)%100}/100/100.jpg"
         
         data.append({
-            "video_id": video_id,
-            "썸네일": thumbnail_url,
-            "영상 제목": f"[{selected_date.strftime('%m/%d')} 핫트렌드] {name}의 급상승 인기 클립 #{np.random.randint(1,100)}",
-            "채널명": name,
-            "미디어 타입": media_type,
-            "실시간 조회수": base_views,
-            "좋아요 수": likes
+            "channel_name": name,
+            "handle": handle,
+            "media_type": m_type,
+            "daily_view": daily_view,
+            "subscribers": subscribers,
+            "estimated_revenue": revenue,
+            "profile_image": profile_img
         })
-    return pd.DataFrame(data)
+        
+    df = pd.DataFrame(data)
+    
+    # 정렬(sort) 및 정렬 방향(order) 파라미터 제어 레이어
+    ascending_opt = True if order == "asc" else False
+    if sort == "daily_view":
+        df = df.sort_values(by="daily_view", ascending=ascending_opt)
+    elif sort == "subscribers":
+        df = df.sort_values(by="subscribers", ascending=ascending_opt)
+    else:
+        df = df.sort_values(by="estimated_revenue", ascending=ascending_opt)
+        
+    return df.head(15).reset_index(drop=True)
 
-# 3. [프론트엔드 - 제어부] 사이드바 컴포넌트 구성 (날짜 기능 추가)
-st.sidebar.header("🔍 트렌드 발굴 필터 시스템")
+# 3. [프론트엔드] 픽셀링 URL 쿼리 스트링 구조를 고스란히 담아낸 사이드바 필터
+st.sidebar.header("🎛️ Query Parameters")
 
-# ⭐ 핵심 기능: Streamlit 달력 위젯 추가
-st.sidebar.subheader("📅 분석 기준 날짜 선택")
-selected_date = st.sidebar.date_input(
-    "조회하고자 하는 날짜를 지정하세요",
-    value=datetime.date(2026, 6, 20),                     # 기본값 (현재 설정 시간 기준)
-    min_value=datetime.date(2026, 1, 1),                  # 데이터 조회 최소 제한일
-    max_value=datetime.date(2026, 12, 31)                 # 데이터 조회 최대 제한일
+# country=KR
+country_opt = st.sidebar.selectbox("국가 선택 (country)", ["대한민국 (KR)", "미국 (US)", "일본 (JP)"])
+country_code = "KR" if "대한민국" in country_opt else "US"
+
+# days=1
+days_opt = st.sidebar.radio("분석 기간 (days)", [1, 3, 7, 30], format_func=lambda x: f"{x}일 기준")
+
+# sort=daily_view
+sort_opt = st.sidebar.selectbox(
+    "정렬 지표 (sort)", 
+    ["daily_view (조회수)", "subscribers (구독자)", "estimated_revenue (예상수익)"]
 )
+sort_param = sort_opt.split(" ")[0]
+
+# order=desc
+order_opt = st.sidebar.radio("정렬 순서 (order)", ["desc (내림차순)", "asc (오름차순)"])
+order_param = order_opt.split(" ")[0]
 
 st.sidebar.markdown("---")
-media_filter = st.sidebar.radio("미디어 포맷 필터", ["전체 보기", "롱폼 (Long-form)", "숏폼 (Shorts)"])
-sort_target = st.sidebar.radio("랭킹 정렬 기준", ["조회수 순", "예상 수익 순", "좋아요 순"])
+search_button = st.sidebar.button("⚡ 디스커버리 파이프라인 구동", type="primary", use_container_width=True)
 
-search_button = st.sidebar.button("🚀 지정 일자 트렌드 발굴하기", type="primary", use_container_width=True)
-
-# 4. 메인 데이터 처리 파이프라인
+# 4. 데이터 렌더링 파이프라인
 if search_button:
-    with st.spinner(f"🔄 시계열 DB에서 {selected_date.strftime('%Y년 %m월 %d일')} 자정 기준 스냅샷을 로드하는 중..."):
+    # 파라미터를 그대로 넘겨 픽셀링 구조의 데이터 확보
+    df_discovery = fetch_discovery_data(sort=sort_param, order=order_param, days=days_opt, country=country_code)
+    
+    # 📌 현재 쿼리 파라미터 주소 상태를 상단에 세련되게 바(Bar) 형태로 표기
+    current_url = f"https://app.pixeling.io/discovery/channels?sort={sort_param}&order={order_param}&days={days_opt}&country={country_code}"
+    st.code(f"🔗 API Endpoint Status: {current_url}", language="bash")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # 🌟 [디자인 핵심] 표(Table) 형식을 완전히 탈피하여 픽셀링 특유의 카드 피드 레이아웃 전개
+    for index, row in df_discovery.iterrows():
+        rank = index + 1
         
-        # 1단계: 사용자가 지정한 날짜의 데이터 로드
-        df_trends = load_snapshot_data_by_date(selected_date)
-        
-        # 2단계: 롱폼/숏폼 수익 정산 모델 대입
-        df_trends["예상 최소수익"] = df_trends.apply(
-            lambda row: int((row["실시간 조회수"] / 1000) * (55 if row["미디어 타입"] == "Shorts" else 4500) * 0.85), axis=1
-        )
-        df_trends["예상 최대수익"] = df_trends.apply(
-            lambda row: int((row["실시간 조회수"] / 1000) * (55 if row["미디어 타입"] == "Shorts" else 4500) * 1.15), axis=1
-        )
-        
-        # 3단계: 조건 필터링 작동
-        if media_filter == "롱폼 (Long-form)":
-            df_trends = df_trends[df_trends["미디어 타입"] == "Long-form"]
-        elif media_filter == "숏폼 (Shorts)":
-            df_trends = df_trends[df_trends["미디어 타입"] == "Shorts"]
-            
-        # 정렬 제어
-        if sort_target == "조회수 순":
-            df_trends = df_trends.sort_values(by="실시간 조회수", ascending=False)
-        elif sort_target == "좋아요 순":
-            df_trends = df_trends.sort_values(by="좋아요 수", ascending=False)
-        else:
-            df_trends = df_trends.sort_values(by="예상 최대수익", ascending=False)
-            
-        # 4단계: 상위 20개 행 제한 및 순위 매기기
-        df_top20 = df_trends.head(20).reset_index(drop=True)
-        df_top20.index = df_top20.index + 1
-        
-        # 5단계: 대시보드 결과 출력
-        st.success(f"📊 {selected_date.strftime('%Y-%m-%d')} 기준 대한민국 인기 트렌드 분석 완료")
-        
-        # 가독성 표 데이터 가공
-        display_df = pd.DataFrame({
-            "영상 썸네일": df_top20["썸네일"],
-            "채널명": df_top20["채널명"],
-            "영상 제목(클릭 이동)": "https://www.youtube.com/watch?v=" + df_top20["video_id"],
-            "실제 제목 텍스트": df_top20["영상 제목"],
-            "포맷": df_top20["미디어 타입"],
-            "조회수": df_top20["실시간 조회수"].map("{:,}회".format),
-            "좋아요": df_top20["좋아요 수"].map("{:,}개".format),
-            "예상 최소 수익": df_top20["예상 최소수익"].map("₩{:,}".format),
-            "예상 최대 수익": df_top20["예상 최대수익"].map("₩{:,}".format)
-        })
-        
-        st.dataframe(
-            display_df,
-            use_container_width=True,
-            height=720,
-            column_config={
-                "영상 썸네일": st.column_config.ImageColumn(label="스냅샷 썸네일"),
-                "채널명": st.column_config.TextColumn(label="크리에이터 채널", width="medium"),
-                "영상 제목(클릭 이동)": st.column_config.LinkColumn(label="링크", display_text=r"🎬 영상 보기"),
-                "실제 제목 텍스트": st.column_config.TextColumn(label="당일 급상승 영상 제목", width="large")
-            }
-        )
-        
-        # 6단계: 실시간 원본 썸네일 그리드 피드 (선택 일자 상위 4개 대형 배치)
-        st.markdown("---")
-        st.subheader(f"📸 {selected_date.strftime('%m월 %d일')} 트렌드 최상위 영상 피드")
-        feed_df = df_top20.head(4)
-        
-        img_cols = st.columns(4)
-        for f_idx, (_, row) in enumerate(feed_df.iterrows()):
-            with img_cols[f_idx]:
-                st.image(row["썸네일"], use_container_width=True)
-                st.markdown(f"**[{row['채널명']}]**")
-                st.markdown(f"<span style='font-size:10pt; color:#404040;'>{row['영상 제목']}</span>", unsafe_allow_html=True)
-                st.caption(f"👀 {row['실시간 조회수']:,}회  |  ❤️ {row['좋아요 수']:,}개")
+        # HTML과 Streamlit 레이아웃 혼합을 통한 카드 컴포넌트 렌더링
+        with st.container():
+            st.markdown(f"""
+            <div class="channel-card">
+                <table style="width:100%; border:none; border-collapse:collapse;">
+                    <tr>
+                        <td style="width: 8%; text-align: center; vertical-align: middle;">
+                            <span class="rank-badge">Top {rank}</span>
+                        </td>
+                        <td style="width: 10%; text-align: center; vertical-align: middle;">
+                            <img src="{row['profile_image']}" style="border-radius: 50%; width: 65px; height: 65px; border: 2px solid #f1f3f7; object-fit: cover;">
+                        </td>
+                        <td style="width: 32%; vertical-align: middle; padding-left: 10px;">
+                            <div style="font-size: 13pt; font-weight: 800; color: #111111; margin-bottom: 2px;">{row['channel_name']}</div>
+                            <div style="font-size: 9.5pt; color: #0076ff; font-weight: 500;">{row['handle']} · <span style="color:#555;">{row['media_type']}</span></div>
+                        </td>
+                        <td style="width: 16%; vertical-align: middle; text-align: left;">
+                            <div class="metric-label">기간 내 조회수</div>
+                            <div class="metric-value">{row['daily_view']:,} 회</div>
+                        </td>
+                        <td style="width: 16%; vertical-align: middle; text-align: left;">
+                            <div class="metric-label">총 구독자 수</div>
+                            <div class="metric-value">{row['subscribers']:,} 명</div>
+                        </td>
+                        <td style="width: 18%; vertical-align: middle; text-align: left;">
+                            <div class="metric-label">추정 채널 파트너 수익</div>
+                            <div style="font-size: 12pt; font-weight: 700; color: #10b981;">₩{row['estimated_revenue']:,}</div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            """, unsafe_allow_html=True)
 
 else:
-    # 대기 상태 홈 화면 안내
-    st.info("💡 왼쪽 사이드바에서 **[원하는 분석 날짜]** 및 필터를 지정하고 **[🚀 지정 일자 트렌드 발굴하기]** 버튼을 누르면 해당 날짜의 시계열 트렌드 기록을 추적합니다.")
-    st.image("https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=1200&q=80", caption="Time-series Snapshot Trend Tracker", use_container_width=True)
+    # 최초 진입 화면 디자인 안내
+    st.info("💡 왼쪽 사이드바의 쿼리 매개변수(Query Parameters)를 설정하고 **[⚡ 디스커버리 파이프라인 구동]** 버튼을 누르면 픽셀링 규격의 데이터 피드가 활성화됩니다.")
+    st.image("https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80", caption="Pixeling API Architecture Interface Simulation", use_container_width=True)
