@@ -38,15 +38,41 @@ def fetch_premium_youtube_data(days, cc, fmt):
         rpm = 110 if m_type == "Shorts" else 9000 if cc == "US" else 4500
         v_count = int(stats.get("viewCount", 0))
         p_view = int(v_count * (1 if days == 1 else days * 0.4))
-        
-        # 괄호 잘림 원천 봉쇄를 위해 단일 라인 한 줄 압축 정의
         data.append({"name": item["snippet"].get("channelTitle", "익명"), "handle": f"@{item['snippet'].get('channelId')[:12]}", "type": m_type, "view": p_view, "rev": int((p_view / 1000) * rpm), "img": item["snippet"].get("thumbnails", {}).get("high", {}).get("url", "")})
-    
     df = pd.DataFrame(data)
     return df.sort_values(by="view", ascending=False).reset_index(drop=True).head(20) if not df.empty else df
 
+# 🎛️ 사이드바 (괄호 유실 방지 초단축 레이아웃)
 st.sidebar.markdown("### 🎛️ CONTROL")
 media_filter = st.sidebar.selectbox("FORMAT", ["전체 통합", "롱폼 전용", "숏폼 전용"])
 period_label = st.sidebar.select_slider("PERIOD", options=["1D", "7D", "30D"])
 days_param = 7 if period_label == "7D" else (30 if period_label == "30D" else 1)
-selected_nation = st.sidebar.selectbox("NATION",
+
+# selectbox 인라인 분리로 에러 완전 차단
+nations = ["South Korea (KR)", "United States (US)"]
+selected_nation = st.sidebar.selectbox("NATION", nations)
+country_code = "US" if "US" in selected_nation else "KR"
+run_engine = st.sidebar.button("RUN ENGINE", type="primary", use_container_width=True)
+
+if run_engine and API_KEY:
+    with st.spinner("⚡ Fetching TOP 20..."): df = fetch_premium_youtube_data(days_param, country_code, media_filter)
+    if not df.empty:
+        st.markdown(f'<div class="url-wrapper">🔗 API STATUS | TOP 20 LIVE MATRIX ACTIVE ({country_code})</div>', unsafe_allow_html=True)
+        m = df.iloc[0]
+        c = "color:#F87171;" if m['type'] == "Shorts" else "color:#60A5FA;"
+        st.markdown(f"""<div class="mvp-hero-card"><div style="display:flex;justify-content:space-between;font-size:9pt;font-weight:600;"><span style="color:#FF1E27;">🏆 NO.1 MVP</span><span style="{c}">{m['type']}</span></div><div style="display:flex;align-items:center;gap:15px;margin-top:10px;"><img src="{m['img']}" style="width:100px;height:70px;border-radius:6px;object-fit:cover;"><div style="flex-grow:1;"><div style="font-size:14pt;font-weight:800;color:#FFF;">{m['name']}</div><div style="color:#9CA3AF;font-size:9pt;">{m['handle']}</div></div><div><div class="metric-box"><span style="color:#9CA3AF;">조회수:</span> <b>{m['view']:,}회</b></div><div class="metric-box"><span style="color:#34D399;">추정수익:</span> <b style="color:#34D399;">₩{m['rev']:,}</b></div></div></div></div>""", unsafe_allow_html=True)
+        
+        st.markdown("<h5 style='font-weight:700;color:#E5E7EB;margin-bottom:10px;'>👥 TOP 2 - 20 CHALLENGERS</h5>", unsafe_allow_html=True)
+        g_data = df.iloc[1:].reset_index(drop=True)
+        for r in range(0, len(g_data), 3):
+            cols = st.columns(3)
+            for c_idx in range(3):
+                idx = r + c_idx
+                if idx < len(g_data):
+                    i = g_data.iloc[idx]
+                    tc = "color:#F87171;" if i['type'] == "Shorts" else "color:#60A5FA;"
+                    with cols[c_idx]:
+                        st.markdown(f"""<div class="grid-card"><div><div style="display:flex;justify-content:space-between;font-size:8pt;"><b>TOP {idx+2}</b><span style="{tc}">{i['type']}</span></div><img src="{i['img']}" style="width:100%;height:120px;border-radius:6px;object-fit:cover;margin:8px 0;border:1px solid #24314D;"><div style="font-size:10.5pt;font-weight:700;color:#FFF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{i['name']}</div><div style="color:#9CA3AF;font-size:8.5pt;margin-bottom:8px;">{i['handle']}</div></div><div><div class="metric-box"><span style="color:#9CA3AF;">조회수:</span> <b>{i['view']:,}</b></div><div class="metric-box"><span style="color:#34D399;">예상수익:</span> <b style="color:#34D399;">₩{i['rev']:,}</b></div></div></div>""", unsafe_allow_html=True)
+                        st.markdown("<br>", unsafe_allow_html=True)
+    else: st.warning("⚠️ 데이터를 파싱하지 못했습니다.")
+else: st.info("💡 사이드바 설정 후 [RUN ENGINE]을 돌리면 1~20위 대시보드가 로드됩니다.")
