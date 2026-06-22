@@ -23,24 +23,50 @@ except: API_KEY = st.sidebar.text_input("API KEY", type="password")
 def fetch_premium_youtube_data(days, cc, fmt):
     if not API_KEY: return pd.DataFrame()
     url = "https://www.googleapis.com/youtube/v3/videos"
-    p = {"part": "id,snippet,contentDetails,statistics", "chart": "mostPopular", "regionCode": cc, "maxResults": 50, "key": API_KEY}
-    try: res = requests.get(url, params=p).json()
-    except: return pd.DataFrame()
-    if "error" in res or "items" not in res: return pd.DataFrame()
-
     data = []
-    for item in res["items"]:
-        stats = item.get("statistics", {})
-        try: secs = isodate.parse_duration(item["contentDetails"].get("duration", "PT0S")).total_seconds()
-        except: secs = 0
-        m_type = "Shorts" if secs <= 60 else "Long-form"
-        if (fmt == "롱폼 전용" and m_type != "Long-form") or (fmt == "숏폼 전용" and m_type != "Shorts"): continue
-        rpm = 110 if m_type == "Shorts" else 9000 if cc == "US" else 4500
-        v_count = int(stats.get("viewCount", 0))
-        p_view = int(v_count * (1 if days == 1 else days * 0.4))
-        data.append({"name": item["snippet"].get("channelTitle", "익명"), "handle": f"@{item['snippet'].get('channelId')[:12]}", "type": m_type, "view": p_view, "rev": int((p_view / 1000) * rpm), "img": item["snippet"].get("thumbnails", {}).get("high", {}).get("url", "")})
+    next_page_token = None
+    
+    # 🎯 숏폼 개수 확보를 위해 최대 4페이지(총 200개 쿼리) 동적 루프 가동
+    max_loops = 4 if fmt == "숏폼 전용" else 2
+    
+    for _ in range(max_loops):
+        p = {"part": "id,snippet,contentDetails,statistics", "chart": "mostPopular", "regionCode": cc, "maxResults": 50, "key": API_KEY}
+        if next_page_token:
+            p["pageToken"] = next_page_token
+            
+        try: res = requests.get(url, params=p).json()
+        except: break
+        if "error" in res or "items" not in res: break
+
+        for item in res["items"]:
+            stats = item.get("statistics", {})
+            try: secs = isodate.parse_duration(item["contentDetails"].get("duration", "PT0S")).total_seconds()
+            except: secs = 0
+            
+            m_type = "Shorts" if secs <= 60 else "Long-form"
+            if (fmt == "롱폼 전용" and m_type != "Long-form") or (fmt == "숏폼 전용" and m_type != "Shorts"): continue
+            
+            rpm = 110 if m_type == "Shorts" else 9000 if cc == "US" else 4500
+            v_count = int(stats.get("viewCount", 0))
+            p_view = int(v_count * (1 if days == 1 else days * 0.4))
+            
+            data.append({
+                "name": item["snippet"].get("channelTitle", "익명"),
+                "handle": f"@{item['snippet'].get('channelId')[:12]}",
+                "type": m_type, "view": p_view,
+                "rev": int((p_view / 1000) * rpm),
+                "img": item["snippet"].get("thumbnails", {}).get("high", {}).get("url", "")
+            })
+            
+        next_page_token = res.get("nextPageToken")
+        if not next_page_token: break
+
     df = pd.DataFrame(data)
-    return df.sort_values(by="view", ascending=False).reset_index(drop=True).head(20) if not df.empty else df
+    if df.empty: return df
+    
+    # 중복 제거 후 조회수 기준 정렬 및 상위 20개 추출
+    df = df.drop_duplicates(subset=["handle"]).sort_values(by="view", ascending=False).reset_index(drop=True)
+    return df.head(20)
 
 st.sidebar.markdown("### 🎛️ CONTROL")
 media_filter = st.sidebar.selectbox("FORMAT", ["전체 통합", "롱폼 전용", "숏폼 전용"])
@@ -53,29 +79,27 @@ country_code = "US" if "US" in selected_nation else "KR"
 run_engine = st.sidebar.button("RUN ENGINE", type="primary", use_container_width=True)
 
 if run_engine and API_KEY:
-    with st.spinner("⚡ Fetching TOP 20..."): 
+    with st.spinner("⚡ 200개의 메트릭을 스캔하여 TOP 20 파싱 중..."): 
         df = fetch_premium_youtube_data(days_param, country_code, media_filter)
         
     if not df.empty:
-        st.markdown(f'<div class="url-wrapper">🔗 API STATUS | TOP 20 LIVE MATRIX ACTIVE ({country_code})</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="url-wrapper">🔗 API STATUS | {media_filter} TOP {len(df)} MATRIX ACTIVE ({country_code})</div>', unsafe_allow_html=True)
         
         # 👑 1위 MVP 대형 단독 레이아웃
         m = df.iloc[0]
         c = "color:#F87171;" if m['type'] == "Shorts" else "color:#60A5FA;"
         st.markdown(f"""<div class="mvp-hero-card"><div style="display:flex;justify-content:space-between;font-size:9pt;font-weight:600;"><span style="color:#FF1E27;">🏆 NO.1 MVP</span><span style="{c}">{m['type']}</span></div><div style="display:flex;align-items:center;gap:15px;margin-top:10px;"><img src="{m['img']}" style="width:100px;height:70px;border-radius:6px;object-fit:cover;"><div style="flex-grow:1;"><div style="font-size:14pt;font-weight:800;color:#FFF;">{m['name']}</div><div style="color:#9CA3AF;font-size:9pt;">{m['handle']}</div></div><div><div class="metric-box"><span style="color:#9CA3AF;">조회수:</span> <b>{m['view']:,}회</b></div><div class="metric-box"><span style="color:#34D399;">추정수익:</span> <b style="color:#34D399;">₩{m['rev']:,}</b></div></div></div></div>""", unsafe_allow_html=True)
         
-        st.markdown("<h5 style='font-weight:700;color:#E5E7EB;margin-bottom:15px;'>👥 TOP 2 - 20 CHALLENGERS</h5>", unsafe_allow_html=True)
+        st.markdown(f"<h5 style='font-weight:700;color:#E5E7EB;margin-bottom:15px;'>👥 TOP 2 - {len(df)} CHALLENGERS</h5>", unsafe_allow_html=True)
         g_data = df.iloc[1:].reset_index(drop=True)
         
-        # 🎯 버그 해결의 핵심: 루프 밖에서 3열 컨테이너 풀(Pool)을 미리 일괄 생성
+        # 3열 컨테이너 사전 풀 빌드
         total_rows = (len(g_data) + 2) // 3
         grid_rows = [st.columns(3) for _ in range(total_rows)]
         
-        # 생성된 고정 맵핑 영역에 순포워딩으로 데이터를 다이렉트 주입 (유실 확률 0%)
         for idx in range(len(g_data)):
             row_pos = idx // 3
             col_pos = idx % 3
-            
             item = g_data.iloc[idx]
             tc = "color:#F87171;" if item['type'] == "Shorts" else "color:#60A5FA;"
             
@@ -93,6 +117,6 @@ if run_engine and API_KEY:
                     </div>
                 </div>""", unsafe_allow_html=True)
     else: 
-        st.warning("⚠️ 데이터를 파싱하지 못했습니다.")
+        st.warning("⚠️ 해당 조건에 맞는 실시간 유튜브 데이터를 충분히 확보하지 못했습니다.")
 else: 
     st.info("💡 사이드바 설정 후 [RUN ENGINE]을 돌리면 1~20위 대시보드가 로드됩니다.")
