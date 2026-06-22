@@ -5,7 +5,6 @@ import isodate
 
 st.set_page_config(page_title="Pixeling Pro", page_icon="🌙", layout="wide")
 
-# 🚀 다크 모드 스타일 레이어
 st.markdown("""<style>
     .stApp { background-color: #0B0F19 !important; color: #E5E7EB; }
     .brand-title { font-size: 24pt; font-weight: 800; background: linear-gradient(135deg, #00F2FE, #4FACFE); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -17,10 +16,8 @@ st.markdown("""<style>
 
 st.markdown('<div class="brand-title">Pixeling Pro 🌙</div><div style="color:#9CA3AF;font-size:9pt;">YouTube Live v3 API Cyber Edition</div><br>', unsafe_allow_html=True)
 
-try:
-    API_KEY = st.secrets["YOUTUBE_API_KEY"]
-except:
-    API_KEY = st.sidebar.text_input("API KEY", type="password")
+try: API_KEY = st.secrets["YOUTUBE_API_KEY"]
+except: API_KEY = st.sidebar.text_input("API KEY", type="password")
 
 @st.cache_data(ttl=1200)
 def fetch_premium_youtube_data(days, cc, fmt):
@@ -38,13 +35,18 @@ def fetch_premium_youtube_data(days, cc, fmt):
         except: secs = 0
         m_type = "Shorts" if secs <= 60 else "Long-form"
         if (fmt == "롱폼 전용" and m_type != "Long-form") or (fmt == "숏폼 전용" and m_type != "Shorts"): continue
-        
         rpm = 110 if m_type == "Shorts" else 9000 if cc == "US" else 4500
         v_count = int(stats.get("viewCount", 0))
         p_view = int(v_count * (1 if days == 1 else days * 0.4))
         
-        data.append({
-            "name": item["snippet"].get("channelTitle", "익명"),
-            "handle": f"@{item['snippet'].get('channelId')[:12]}",
-            "type": m_type, "view": p_view,
-            "rev": int((p_view / 1000) * rpm),
+        # 괄호 잘림 원천 봉쇄를 위해 단일 라인 한 줄 압축 정의
+        data.append({"name": item["snippet"].get("channelTitle", "익명"), "handle": f"@{item['snippet'].get('channelId')[:12]}", "type": m_type, "view": p_view, "rev": int((p_view / 1000) * rpm), "img": item["snippet"].get("thumbnails", {}).get("high", {}).get("url", "")})
+    
+    df = pd.DataFrame(data)
+    return df.sort_values(by="view", ascending=False).reset_index(drop=True).head(20) if not df.empty else df
+
+st.sidebar.markdown("### 🎛️ CONTROL")
+media_filter = st.sidebar.selectbox("FORMAT", ["전체 통합", "롱폼 전용", "숏폼 전용"])
+period_label = st.sidebar.select_slider("PERIOD", options=["1D", "7D", "30D"])
+days_param = 7 if period_label == "7D" else (30 if period_label == "30D" else 1)
+selected_nation = st.sidebar.selectbox("NATION",
