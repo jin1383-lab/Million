@@ -5,7 +5,7 @@ import isodate
 
 st.set_page_config(page_title="Pixeling Pro", page_icon="🌙", layout="wide")
 
-# 🚀 CSS 스타일 압축 최소화
+# 🚀 다크 모드 스타일 레이어
 st.markdown("""<style>
     .stApp { background-color: #0B0F19 !important; color: #E5E7EB; }
     .brand-title { font-size: 24pt; font-weight: 800; background: linear-gradient(135deg, #00F2FE, #4FACFE); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -48,14 +48,3 @@ def fetch_premium_youtube_data(days, cc, fmt):
             "handle": f"@{item['snippet'].get('channelId')[:12]}",
             "type": m_type, "view": p_view,
             "rev": int((p_view / 1000) * rpm),
-            "img": item["snippet"].get("thumbnails", {}).get("high", {}).get("url", "")
-        })
-    df = pd.DataFrame(data)
-    return df.sort_values(by="view", ascending=False).reset_index(drop=True).head(20) if not df.empty else df
-
-# 4. 제어판 (잘림 방지 초압축형 설계)
-st.sidebar.markdown("### 🎛️ CONTROL")
-media_filter = st.sidebar.selectbox("FORMAT", ["전체 통합", "롱폼 전용", "숏폼 전용"])
-period_label = st.sidebar.select_slider("PERIOD", options=["1D", "7D", "30D"])
-days_param = 1 if "1D" in period_label else (7 if "7D" in period_label else 30)
-country_code = "US" if "United States" in st.sidebar.selectbox("NATION",
