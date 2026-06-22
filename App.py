@@ -32,12 +32,11 @@ try:
 except Exception:
     API_KEY = st.sidebar.text_input("구글 API 키 입력", type="password")
 
-# 3. 라이브 데이터 파이프라인 (20개 추출 타겟팅)
+# 3. 라이브 데이터 파이프라인
 @st.cache_data(ttl=1200)
 def fetch_premium_youtube_data(period_days, country_code, media_filter):
     if not API_KEY: return pd.DataFrame()
     url = "https://www.googleapis.com/youtube/v3/videos"
-    # 필터링 후 20개를 확보하기 위해 최초 50개 풀 데이터 로드
     params = {"part": "id,snippet,contentDetails,statistics", "chart": "mostPopular", "regionCode": country_code, "maxResults": 50, "key": API_KEY}
     try: response = requests.get(url, params=params).json()
     except Exception: return pd.DataFrame()
@@ -72,7 +71,7 @@ def fetch_premium_youtube_data(period_days, country_code, media_filter):
             })
     df = pd.DataFrame(data)
     if not df.empty: df = df.sort_values(by="period_view", ascending=False).reset_index(drop=True)
-    return df.head(20) # 🎯 최대 20위 컷으로 확장
+    return df.head(20)
 
 # 4. 사이드바 제어판
 st.sidebar.markdown("### 🎛️ CYBER CONTROL")
@@ -94,32 +93,59 @@ if search_button and API_KEY:
         f_slug = "all" if "전체" in media_filter else ("long" if "롱폼" in media_filter else "shorts")
         st.markdown(f'<div class="url-wrapper">🔗 API STATUS | https://app.pixeling.io/discovery?format={f_slug}&count=20&country={country_code}</div>', unsafe_allow_html=True)
         
-        # 👑 MVP 1위 대형 레이아웃
+        # 👑 MVP 1위 안전 치환형 레이아웃 (f-string 완전 제거)
         mvp = df_rank.iloc[0]
         format_style = "color:#F87171;" if mvp['media_type'] == "Shorts" else "color:#60A5FA;"
-        st.markdown(f"""
+        
+        mvp_html = """
         <div class="mvp-hero-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                 <span class="badge-mvp">🏆 NO.1 MVP</span>
-                <span style="{format_style} font-size:9pt; font-weight:600;">{mvp['media_type']}</span>
+                <span style="__FMT_STYLE__ font-size:9pt; font-weight:600;">__MEDIA_TYPE__</span>
             </div>
             <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
-                <img src="{mvp['profile_image']}" style="width:120px; height:80px; border-radius:8px; object-fit:cover;">
+                <img src="__IMG__" style="width:120px; height:80px; border-radius:8px; object-fit:cover;">
                 <div style="flex-grow:1;">
-                    <div style="font-size:16pt; font-weight:800; color:#FFF;">{mvp['channel_name']}</div>
-                    <div style="color:#9CA3AF; font-size:9.5pt;">{mvp['handle']}</div>
+                    <div style="font-size:16pt; font-weight:800; color:#FFF;">__NAME__</div>
+                    <div style="color:#9CA3AF; font-size:9.5pt;">__HANDLE__</div>
                 </div>
                 <div style="display:flex; gap:12px;">
-                    <div class="metric-box"><div class="lbl">조회수</div><div class="val">{mvp['period_view']:,}회</div></div>
-                    <div class="metric-box"><div class="lbl">추정수익</div><div class="val-rev">₩{mvp['estimated_revenue']:,}</div></div>
+                    <div class="metric-box"><div class="lbl">조회수</div><div class="val">__VIEW__회</div></div>
+                    <div class="metric-box"><div class="lbl">추정수익</div><div class="val-rev">₩__REV__</div></div>
                 </div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        mvp_html = mvp_html.replace("__FMT_STYLE__", format_style)\
+                           .replace("__MEDIA_TYPE__", str(mvp['media_type']))\
+                           .replace("__IMG__", str(mvp['profile_image']))\
+                           .replace("__NAME__", str(mvp['channel_name']))\
+                           .replace("__HANDLE__", str(mvp['handle']))\
+                           .replace("__VIEW__", f"{mvp['period_view']:,}")\
+                           .replace("__REV__", f"{mvp['estimated_revenue']:,}")
+        st.markdown(mvp_html, unsafe_allow_html=True)
         
-        # 👥 2위 ~ 20위 3열 그리드 자동 정렬 전개
+        # 👥 2위 ~ 20위 안전 치환형 3열 그리드 레이아웃 (f-string 완전 제거)
         st.markdown("<h5 style='font-weight:700; color:#E5E7EB; margin-bottom:12px;'>👥 TOP 2 - 20 CHALLENGERS</h5>", unsafe_allow_html=True)
         grid_data = df_rank.iloc[1:].reset_index(drop=True)
+        
+        card_template = """
+        <div class="grid-card">
+            <div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <span class="badge-rank">TOP __RANK__</span>
+                    <span style="__FMT_STYLE__ font-size:8pt;">__MEDIA_TYPE__</span>
+                </div>
+                <img src="__IMG__" style="width:100%; height:130px; border-radius:8px; object-fit:cover; border:1px solid #24314D;">
+                <div style="font-size:11pt; font-weight:700; color:#FFF; margin-top:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">__NAME__</div>
+                <div style="color:#9CA3AF; font-size:8.5pt; margin-bottom:10px;">__HANDLE__</div>
+            </div>
+            <div>
+                <div class="metric-box"><div class="lbl">조회수</div><div class="val">__VIEW__ 회</div></div>
+                <div class="metric-box"><div class="lbl">예상수익</div><div class="val-rev">₩__REV__</div></div>
+            </div>
+        </div>
+        """
         
         for row_idx in range(0, len(grid_data), 3):
             cols = st.columns(3)
@@ -129,13 +155,5 @@ if search_button and API_KEY:
                     item = grid_data.iloc[data_idx]
                     item_style = "color:#F87171;" if item['media_type'] == "Shorts" else "color:#60A5FA;"
                     
-                    with cols[col_idx]:
-                        st.markdown(f"""
-                        <div class="grid-card">
-                            <div>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                                    <span class="badge-rank">TOP {data_idx + 2}</span>
-                                    <span style="{item_style} font-size:8pt;">{item['media_type']}</span>
-                                </div>
-                                <img src="{item['profile_image']}" style="width:100%; height:130px; border-radius:8px; object-fit:cover; border:1px solid #24314D;">
-                                <div style="font-size:11pt; font-weight:700; color:#FFF; margin-top:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis
+                    # 템플릿 복사 및 하드 리플레이스 진행
+                    current_card = card_template.replace("__RANK__", str(data_idx +
