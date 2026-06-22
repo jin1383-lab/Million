@@ -6,7 +6,7 @@ import isodate
 # 1. 페이지 테마 설정
 st.set_page_config(page_title="Pixeling Pro - Dark Matrix", page_icon="🌙", layout="wide")
 
-# 🚀 압축형 다크모드 인젝션 (코드 길이 대폭 축소)
+# 🚀 압축형 다크모드 인젝션
 st.markdown("""
     <style>
     .stApp { background-color: #0B0F19 !important; color: #E5E7EB; }
@@ -93,13 +93,17 @@ if search_button and API_KEY:
         f_slug = "all" if "전체" in media_filter else ("long" if "롱폼" in media_filter else "shorts")
         st.markdown(f'<div class="url-wrapper">🔗 API STATUS | https://app.pixeling.io/discovery?format={f_slug}&days={days_param}&country={country_code}</div>', unsafe_allow_html=True)
         
-        # MVP 1위 대형 레이아웃
+        # 👑 MVP 1위 대형 레이아웃 (f-string 중괄호 문법 충돌 완벽 해결)
         mvp = df_rank.iloc[0]
+        
+        # 동적 클래스 명 지정으로 중괄호 격리
+        format_style = "color:#F87171;" if mvp['media_type'] == "Shorts" else "color:#60A5FA;"
+        
         st.markdown(f"""
         <div class="mvp-hero-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                 <span class="badge-mvp">🏆 NO.1 MVP</span>
-                <span style="color:#60A5FA; font-size:9pt; font-weight:600;">{mvp['media_type']}</span>
+                <span style="{format_style} font-size:9pt; font-weight:600;">{mvp['media_type']}</span>
             </div>
             <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
                 <img src="{mvp['profile_image']}" style="width:120px; height:80px; border-radius:8px; object-fit:cover;">
@@ -115,7 +119,7 @@ if search_button and API_KEY:
         </div>
         """, unsafe_allow_html=True)
         
-        # 2위 이하 3열 그리드 플레이스먼트
+        # 👥 2위 이하 3열 그리드 플레이스먼트
         st.markdown("<h5 style='font-weight:700; color:#E5E7EB; margin-bottom:12px;'>👥 NEXT CHALLENGERS</h5>", unsafe_allow_html=True)
         grid_data = df_rank.iloc[1:].reset_index(drop=True)
         
@@ -125,13 +129,17 @@ if search_button and API_KEY:
                 data_idx = row_idx + col_idx
                 if data_idx < len(grid_data):
                     item = grid_data.iloc[data_idx]
+                    
+                    # 동적 포맷 스타일 지정
+                    item_style = "color:#F87171;" if item['media_type'] == "Shorts" else "color:#60A5FA;"
+                    
                     with cols[col_idx]:
                         st.markdown(f"""
                         <div class="grid-card">
                             <div>
                                 <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                                     <span class="badge-rank">TOP {data_idx + 2}</span>
-                                    <span style="color:#60A5FA; font-size:8pt;">{item['media_type']}</span>
+                                    <span style="{item_style} font-size:8pt;">{item['media_type']}</span>
                                 </div>
                                 <img src="{item['profile_image']}" style="width:100%; height:130px; border-radius:8px; object-fit:cover; border:1px solid #24314D;">
                                 <div class="card-title" style="font-size:11pt; font-weight:700; color:#FFF; margin-top:8px;">{item['channel_name']}</div>
@@ -140,3 +148,11 @@ if search_button and API_KEY:
                             <div>
                                 <div class="metric-box"><div class="lbl">조회수</div><div class="val">{item['period_view']:,} 회</div></div>
                                 <div class="metric-box"><div class="lbl">예상수익</div><div class="val-rev">₩{item['estimated_revenue']:,}</div></div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        st.markdown("<br>", unsafe_allow_html=True)
+    else:
+        st.warning("⚠️ 데이터를 가져오지 못했습니다.")
+else:
+    st.info("💡 사이드바 쿼리 세팅 후 [RUN DARK ENGINE] 버튼을 누르면 실시간 API 분석 데이터가 즉시 렌더링됩니다.")
