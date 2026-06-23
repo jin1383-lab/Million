@@ -13,9 +13,11 @@ st.markdown("""<style>
     .mvp-hero-card { background: linear-gradient(135deg, #1A1225, #131B2E); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #FF3366; }
     .grid-card { background: #131B2E; border-radius: 10px; border: 1px solid #212B41; padding: 15px; margin-bottom: 20px; height: auto; }
     .metric-box { background: #1A2338; border-radius: 6px; padding: 8px; margin-top: 5px; border: 1px solid #24314D; font-size: 9pt; }
+    .thumb-link img { transition: transform 0.2s ease, opacity 0.2s ease; }
+    .thumb-link img:hover { transform: scale(1.02); opacity: 0.85; cursor: pointer; }
 </style>""", unsafe_allow_html=True)
 
-st.markdown('<div class="brand-title">Pixeling Advanced Matrix ⚡</div><div style="color:#9CA3AF;font-size:9pt;">YouTube Global Daily-Average Analytics Engine</div><br>', unsafe_allow_html=True)
+st.markdown('<div class="brand-title">Pixeling Engagement Matrix ⚡</div><div style="color:#9CA3AF;font-size:9pt;">YouTube Likes & Comments Engagement Engine</div><br>', unsafe_allow_html=True)
 
 try: API_KEY = st.secrets["YOUTUBE_API_KEY"]
 except: API_KEY = st.sidebar.text_input("API KEY", type="password")
@@ -23,12 +25,12 @@ except: API_KEY = st.sidebar.text_input("API KEY", type="password")
 CATEGORY_MAP = {
     "전체 (All)": None, "영화 & 애니메이션": "1", "자동차 & 탈것": "2", "음악": "10", 
     "반려동물 & 동물": "15", "스포츠": "17", "여행 & 이벤트": "19", "게임": "20", 
-    "인물 & 블로그": "22", "코미디": "23", "엔터테인먼트": "24", "뉴스 & 정치": "25", 
+    "인물 & 블로그": "22", "코미디": "23", "엔터테인먼자": "24", "뉴스 & 정치": "25", 
     "노하우 & 스타일": "26", "교육": "27", "과학 & 기술": "28"
 }
 
 @st.cache_data(ttl=600)
-def fetch_advanced_trending_data(days, cc, fmt, cat_id):
+def fetch_engagement_trending_data(days, cc, fmt, cat_id):
     if not API_KEY: return pd.DataFrame()
     url = "https://www.googleapis.com/youtube/v3/videos"
     data = []
@@ -49,6 +51,7 @@ def fetch_advanced_trending_data(days, cc, fmt, cat_id):
         for item in res["items"]:
             snippet = item.get("snippet", {})
             stats = item.get("statistics", {})
+            v_id = item.get("id")
             
             try: secs = isodate.parse_duration(item["contentDetails"].get("duration", "PT0S")).total_seconds()
             except: secs = 0
@@ -63,26 +66,35 @@ def fetch_advanced_trending_data(days, cc, fmt, cat_id):
             except:
                 elapsed_days = 1.0
             
-            total_views = int(stats.get("viewCount", 0))
-            daily_avg_view = total_views / elapsed_days
-            calculated_period_view = int(daily_avg_view * days)
+            # 🎯 고도화 메트릭: 좋아요 및 댓글 데이터 파싱 및 1일 단위 분할 유추
+            raw_likes = int(stats.get("likeCount", 0))
+            raw_comments = int(stats.get("commentCount", 0))
+            raw_views = int(stats.get("viewCount", 0))
             
-            # 🎯 국가별/포맷별 글로벌 RPM 스케일러 반영 (미국 대형 시장, 일본 중고단가 반영)
+            # 선택 기간(days)에 맞는 가중치 환산 적용
+            calc_likes = int((raw_likes / elapsed_days) * days)
+            calc_comments = int((raw_comments / elapsed_days) * days)
+            calc_views = int((raw_views / elapsed_days) * days)
+            
+            # 🏆 순위 결정을 위한 통합 인게이지먼트 스코어 계산 (좋아요 + 댓글 가중치 반영)
+            engagement_score = calc_likes + (calc_comments * 2) 
+            
             if m_type == "Shorts":
-                rpm = 110 if cc == "KR" else 150 if cc == "US" else 120  # 숏폼 단가
+                rpm = 110 if cc == "KR" else 150 if cc == "US" else 120
             else:
-                rpm = 4500 if cc == "KR" else 9000 if cc == "US" else 5500 # 롱폼 단가
+                rpm = 4500 if cc == "KR" else 9000 if cc == "US" else 5500
                 
-            estimated_revenue = int((calculated_period_view / 1000) * rpm)
-            
-            # 화폐 기호 처리
+            estimated_revenue = int((calc_views / 1000) * rpm)
             currency_symbol = "₩" if cc == "KR" else "$" if cc == "US" else "¥"
             
             data.append({
+                "video_url": f"https://youtu.be/{v_id}",
                 "name": snippet.get("channelTitle", "익명"),
                 "handle": f"@{snippet.get('channelId')[:12]}",
                 "type": m_type, 
-                "view": calculated_period_view,
+                "likes": calc_likes,
+                "comments": calc_comments,
+                "score": engagement_score,
                 "rev": estimated_revenue,
                 "symbol": currency_symbol,
                 "img": snippet.get("thumbnails", {}).get("high", {}).get("url", "")
@@ -94,10 +106,11 @@ def fetch_advanced_trending_data(days, cc, fmt, cat_id):
     df = pd.DataFrame(data)
     if df.empty: return df
     
-    df = df.drop_duplicates(subset=["handle"]).sort_values(by="view", ascending=False).reset_index(drop=True)
+    # 🎯 조회수 기준이 아닌 '인게이지먼트 스코어(좋아요+댓글)' 기준으로 상위 20위 정렬
+    df = df.drop_duplicates(subset=["handle"]).sort_values(by="score", ascending=False).reset_index(drop=True)
     return df.head(20)
 
-st.sidebar.markdown("### ⚡ ADVANCED CONTROL")
+st.sidebar.markdown("### ⚡ ENGAGEMENT CONTROL")
 selected_cat_label = st.sidebar.selectbox("CATEGORY", list(CATEGORY_MAP.keys()))
 target_cat_id = CATEGORY_MAP[selected_cat_label]
 
@@ -105,25 +118,24 @@ media_filter = st.sidebar.selectbox("FORMAT", ["전체 통합", "롱폼 전용",
 period_label = st.sidebar.select_slider("PERIOD", options=["1D", "7D", "30D"])
 days_param = 7 if period_label == "7D" else (30 if period_label == "30D" else 1)
 
-# 🇯🇵 일본(JP) 선택지 추가
 nations = ["South Korea (KR)", "United States (US)", "Japan (JP)"]
 selected_nation = st.sidebar.selectbox("NATION", nations)
 country_code = "US" if "US" in selected_nation else "JP" if "JP" in selected_nation else "KR"
-run_engine = st.sidebar.button("RUN ADVANCED ENGINE", type="primary", use_container_width=True)
+run_engine = st.sidebar.button("RUN ENGAGEMENT ENGINE", type="primary", use_container_width=True)
 
 if run_engine and API_KEY:
-    with st.spinner(f"⚡ {country_code} 시장 트렌딩 데이터 가중치 분석 중..."): 
-        df = fetch_advanced_trending_data(days_param, country_code, media_filter, target_cat_id)
+    with st.spinner(f"⚡ {country_code} 실시간 좋아요 및 댓글 참여 활성도 연산 중..."): 
+        df = fetch_engagement_trending_data(days_param, country_code, media_filter, target_cat_id)
         
     if not df.empty:
-        st.markdown(f'<div class="url-wrapper">🔗 GLOBAL ENGINE ACTIVE | {period_label} 필터 적용됨 (타겟 국가: {country_code})</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="url-wrapper">🔗 INTERACTION ACTIVE | {period_label} 동안 댓글과 좋아요 반응이 가장 뜨거운 영상 순위입니다.</div>', unsafe_allow_html=True)
         
         # 👑 1위 MVP 대형 단독 레이아웃
         m = df.iloc[0]
         c = "color:#F87171;" if m['type'] == "Shorts" else "color:#60A5FA;"
-        st.markdown(f"""<div class="mvp-hero-card"><div style="display:flex;justify-content:space-between;font-size:9pt;font-weight:600;"><span style="color:#FF0055;">🔥 {period_label} GLOBAL NO.1</span><span style="{c}">{m['type']}</span></div><div style="display:flex;align-items:center;gap:15px;margin-top:10px;"><img src="{m['img']}" style="width:100px;height:70px;border-radius:6px;object-fit:cover;"><div style="flex-grow:1;"><div style="font-size:14pt;font-weight:800;color:#FFF;">{m['name']}</div><div style="color:#9CA3AF;font-size:9pt;">{m['handle']}</div></div><div><div class="metric-box"><span style="color:#9CA3AF;">{period_label} 환산 조회수:</span> <b>{m['view']:,}회</b></div><div class="metric-box"><span style="color:#34D399;">{period_label} 예측수익:</span> <b style="color:#34D399;">{m['symbol']}{m['rev']:,}</b></div></div></div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="mvp-hero-card"><div style="display:flex;justify-content:space-between;font-size:9pt;font-weight:600;"><span style="color:#FF0055;">🔥 {period_label} INTERACTION NO.1</span><span style="{c}">{m['type']}</span></div><div style="display:flex;align-items:center;gap:15px;margin-top:10px;"><a href="{m['video_url']}" target="_blank" class="thumb-link"><img src="{m['img']}" style="width:100px;height:70px;border-radius:6px;object-fit:cover;"></a><div style="flex-grow:1;"><div style="font-size:14pt;font-weight:800;color:#FFF;">{m['name']}</div><div style="color:#9CA3AF;font-size:9pt;">{m['handle']}</div></div><div><div class="metric-box"><span style="color:#F87171;">❤️ {period_label} 좋아요:</span> <b>{m['likes']:,}개</b></div><div class="metric-box"><span style="color:#38BDF8;">💬 {period_label} 댓글수:</span> <b>{m['comments']:,}개</b></div><div class="metric-box"><span style="color:#34D399;">💰 {period_label} 예측수익:</span> <b style="color:#34D399;">{m['symbol']}{m['rev']:,}</b></div></div></div></div>""", unsafe_allow_html=True)
         
-        st.markdown(f"<h5 style='font-weight:700;color:#E5E7EB;margin-bottom:15px;'>👥 TOP 2 - {len(df)} PERIOD TREND LEADERS</h5>", unsafe_allow_html=True)
+        st.markdown(f"<h5 style='font-weight:700;color:#E5E7EB;margin-bottom:15px;'>👥 TOP 2 - {len(df)} REACTION LEADERS</h5>", unsafe_allow_html=True)
         g_data = df.iloc[1:].reset_index(drop=True)
         
         total_rows = (len(g_data) + 2) // 3
@@ -139,16 +151,19 @@ if run_engine and API_KEY:
                 st.markdown(f"""<div class="grid-card">
                     <div>
                         <div style="display:flex;justify-content:space-between;font-size:8pt;"><b>TOP {idx+2}</b><span style="{tc}">{item['type']}</span></div>
-                        <img src="{item['img']}" style="width:100%;height:120px;border-radius:6px;object-fit:cover;margin:8px 0;border:1px solid #24314D;">
+                        <a href="{item['video_url']}" target="_blank" class="thumb-link">
+                            <img src="{item['img']}" style="width:100%;height:120px;border-radius:6px;object-fit:cover;margin:8px 0;border:1px solid #24314D;">
+                        </a>
                         <div style="font-size:10.5pt;font-weight:700;color:#FFF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{item['name']}</div>
                         <div style="color:#9CA3AF;font-size:8.5pt;margin-bottom:8px;">{item['handle']}</div>
                     </div>
                     <div>
-                        <div class="metric-box"><span style="color:#9CA3AF;">{period_label} 뷰:</span> <b>{item['view']:,}</b></div>
+                        <div class="metric-box"><span style="color:#F87171;">❤️ 좋아요:</span> <b>{item['likes']:,}</b></div>
+                        <div class="metric-box"><span style="color:#38BDF8;">💬 댓글수:</span> <b>{item['comments']:,}</b></div>
                         <div class="metric-box"><span style="color:#34D399;">예상수익:</span> <b style="color:#34D399;">{item['symbol']}{item['rev']:,}</b></div>
                     </div>
                 </div>""", unsafe_allow_html=True)
     else: 
-        st.warning(f"⚠️ {selected_nation} 트렌딩 피드에서 조건에 맞는 실시간 연산 데이터를 확보하지 못했습니다.")
+        st.warning(f"⚠️ {selected_nation} 트렌딩 피드에서 상호작용 조건에 맞는 데이터를 확보하지 못했습니다.")
 else: 
-    st.info("💡 사이드바에서 국가(NATION) 및 필터를 설정한 후 [RUN ADVANCED ENGINE]을 돌려주세요.")
+    st.info("💡 사이드바에서 국가 및 카테고리를 설정한 후 [RUN ENGAGEMENT ENGINE]을 돌려주세요.")
